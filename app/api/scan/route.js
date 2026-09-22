@@ -1,11 +1,12 @@
-import { GoogleGenAI } from '@google/genai';
+ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req) {
   try {
     const { inputData } = await req.json();
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `
       You are an expert e-commerce dark pattern and hidden fee scanner.
@@ -28,16 +29,14 @@ export async function POST(req) {
       }
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [prompt],
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    
+    // Clean markdown backticks if present
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(cleanJson);
 
-    const result = JSON.parse(response.text || '{}');
-    return NextResponse.json(result);
+    return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to analyze content' }, { status: 500 });
   }
